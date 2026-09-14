@@ -1,0 +1,96 @@
+#!/usr/bin/env node
+// migrate.js — main entry point
+//
+// Usage:
+//   node src/migrate.js                → runs all steps in order
+//   node src/migrate.js --only=users    → runs a single named step
+//   node src/migrate.js --dry-run       → connects and validates, writes nothing
+//
+// SECURITY REMINDER: this script and everything it calls must never
+// console.log row contents (names, emails, phone numbers, diagnoses, etc).
+// Only counts and IDs. See logger.js.
+
+require('dotenv').config();
+const logger = require('./logger');
+const { closeAll } = require('./db');
+const { ensureIdMapTable } = require('./idMap');
+const { ensureCheckpointTable } = require('./checkpoint');
+
+const lookups = require('./steps/01_lookups');
+const accounts = require('./steps/02_accounts');
+const patientGroups = require('./steps/03_patient_groups');
+const users = require('./steps/04_users');
+const portalUsers = require('./steps/05_portal_users');
+const clinicalData = require('./steps/06_clinical_data');
+const heartRate = require('./steps/07_heart_rate');
+const predictedValues = require('./steps/08_predicted_values');
+
+const STEPS = [
+  { name: 'lookups', run: lookups.run },
+  { name: 'accounts', run: accounts.run },
+  { name: 'patient_groups', run: patientGroups.run },
+  { name: 'users', run: users.run },
+  { name: 'portal_users', run: portalUsers.run },
+  { name: 'clinical_data', run: clinicalData.run },
+  { name: 'heart_rate', run: heartRate.run },
+  { name: 'predicted_values', run: predictedValues.run },
+  // Still to build:
+  // - dc_doctor_details / dc_patient_details / vf_attributes (from ande_db)
+];
+
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const dryRun = args.includes('--dry-run');
+  const onlyArg = args.find((a) => a.startsWith('--only='));
+  const only = onlyArg ? onlyArg.split('=')[1] : null;
+  return { dryRun, only };
+}
+
+async function main() {
+  const { dryRun, only } = parseArgs();
+
+  if (dryRun) {
+    logger.info('DRY RUN MODE — no data will be written. (Connection + setup checks only.)');
+  }
+
+  await ensureIdMapTable();
+  await ensureCheckpointTable();
+
+  let lookupResults = null;
+
+  for (const step of STEPS) {
+    if (only && step.name !== only) continue;
+
+    if (dryRun) {
+      logger.info(`[dry-run] Would run step: ${step.name}`);
+      continue;
+    }
+
+    try {
+      if (step.name === 'lookups') {
+        lookupResults = await step.run();
+      } else if (step.name === 'users' || step.name === 'portal_users') {
+        if (!lookupResults) {
+          logger.info('Loading existing lookup ID maps from database (lookups step not run this session)...');
+          lookupResults = await lookups.loadExistingLookupMaps();
+        }
+        await step.run(lookupResults);
+      } else {
+        await step.run();
+      }
+    } catch (err) {
+      logger.error(`Step "${step.name}" failed — stopping migration.`, err);
+      await closeAll();
+      process.exit(1);
+    }
+  }
+
+  logger.info('Migration run finished.');
+  await closeAll();
+}
+
+main().catch(async (err) => {
+  logger.error('Unhandled error in migration script', err);
+  await closeAll();
+  process.exit(1);
+});
