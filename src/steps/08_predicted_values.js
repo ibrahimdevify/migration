@@ -10,8 +10,12 @@
 //
 // percent_predicted is computed as (actual / predicted * 100) when both the
 // actual measured value and the predicted value are available; left NULL
-// otherwise (e.g. for fev1fvc, since there's no direct "actual fev1/fvc
+// otherwise (e.g. for FEV1/FVC, since there's no direct "actual fev1/fvc
 // ratio" column to divide against cleanly — only fev1 and fvc separately).
+//
+// Variable name format: 'FEV1', 'FVC', 'FEV1/FVC', 'FEF25-75' — this exact
+// casing/punctuation was confirmed against real rows in the production
+// database's portal_predicted_value table before writing this step.
 
 const logger = require('../logger');
 const { portalDb, getMysqlPool } = require('../db');
@@ -29,12 +33,18 @@ function pctPredicted(actual, predicted) {
 }
 
 // Each entry: [variableName, lln, predicted, zscore, actualValueForPct]
+// Variable name strings match the format already used in the production
+// database (confirmed by querying real portal_predicted_value rows):
+// 'FEV1', 'FVC', 'FEV1/FVC', 'FEF25-75' — uppercase, with a slash and a
+// hyphen respectively. This is NOT the same as a lowercased/concatenated
+// version — match it exactly so the API layer's queries (which expect this
+// real format) find the data.
 function buildVariableRows(spiro) {
   return [
-    ['fev1', spiro.gli2012_fev1_lln, spiro.gli2012_fev1_predicted, spiro.gli2012_fev1_zscore, spiro.fev1],
-    ['fvc', spiro.gli2012_fvc_lln, spiro.gli2012_fvc_predicted, spiro.gli2012_fvc_zscore, spiro.fvc],
-    ['fev1fvc', spiro.gli2012_fev1fvc_lln, spiro.gli2012_fev1fvc_predicted, spiro.gli2012_fev1fvc_zscore, null],
-    ['fef2575', spiro.gli2012_fef2575_lln, spiro.gli2012_fef2575_predicted, spiro.gli2012_fef2575_zscore, spiro.fef2575],
+    ['FEV1', spiro.gli2012_fev1_lln, spiro.gli2012_fev1_predicted, spiro.gli2012_fev1_zscore, spiro.fev1],
+    ['FVC', spiro.gli2012_fvc_lln, spiro.gli2012_fvc_predicted, spiro.gli2012_fvc_zscore, spiro.fvc],
+    ['FEV1/FVC', spiro.gli2012_fev1fvc_lln, spiro.gli2012_fev1fvc_predicted, spiro.gli2012_fev1fvc_zscore, null],
+    ['FEF25-75', spiro.gli2012_fef2575_lln, spiro.gli2012_fef2575_predicted, spiro.gli2012_fef2575_zscore, spiro.fef2575],
   ];
 }
 
