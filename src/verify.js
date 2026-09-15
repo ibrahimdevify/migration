@@ -81,6 +81,33 @@ async function main() {
   logger.info(`[portal_db] dashboard_spirometry (${spiroCount} rows) -> ` +
     `portal_predicted_value (${predictedCount} rows, up to 4 per spirometry row expected)`);
 
+  // --- patient/doctor details checks ---
+  const detailChecks = [
+    { source: 'authenticator_clinician', target: 'dc_doctor_details' },
+    { source: 'authenticator_patient', target: 'dc_patient_details' },
+    { source: 'authenticator_attributes', target: 'vf_attributes' },
+    { source: 'authenticator_address', target: 'vf_address' },
+  ];
+  for (const check of detailChecks) {
+    const sourceCount = await countPg(andeDb, check.source);
+    const targetCount = await countMysql(mysqlPool, check.target);
+    const diff = sourceCount - targetCount;
+    const flag = diff === 0 ? 'OK' : `DIFF of ${diff}`;
+    logger.info(`[ande_db] ${check.source} (${sourceCount}) -> ${check.target} (${targetCount})  [${flag}]`);
+  }
+
+  const medSourceCount = await countPg(andeDb, 'authenticator_medication');
+  const medTargetCount = await countMysql(mysqlPool, 'dc_ehr_prescription_medicines');
+  logger.info(`[ande_db] authenticator_medication (${medSourceCount}) -> ` +
+    `dc_ehr_prescription_medicines (${medTargetCount})`);
+
+  // --- spirometry trends (derived, should match portal_spirometry count) ---
+  const spiroTargetCount = await countMysql(mysqlPool, 'portal_spirometry');
+  const trendsCount = await countMysql(mysqlPool, 'portal_spirometry_trends');
+  const trendsDiff = spiroTargetCount - trendsCount;
+  logger.info(`[derived] portal_spirometry (${spiroTargetCount}) -> ` +
+    `portal_spirometry_trends (${trendsCount})  [${trendsDiff === 0 ? 'OK' : `DIFF of ${trendsDiff}`}]`);
+
   await closeAll();
 }
 

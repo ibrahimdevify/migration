@@ -24,6 +24,8 @@ const portalUsers = require('./steps/05_portal_users');
 const clinicalData = require('./steps/06_clinical_data');
 const heartRate = require('./steps/07_heart_rate');
 const predictedValues = require('./steps/08_predicted_values');
+const patientDoctorDetails = require('./steps/09_patient_doctor_details');
+const spirometryTrends = require('./steps/10_spirometry_trends');
 
 const STEPS = [
   { name: 'lookups', run: lookups.run },
@@ -34,8 +36,12 @@ const STEPS = [
   { name: 'clinical_data', run: clinicalData.run },
   { name: 'heart_rate', run: heartRate.run },
   { name: 'predicted_values', run: predictedValues.run },
-  // Still to build:
-  // - dc_doctor_details / dc_patient_details / vf_attributes (from ande_db)
+  { name: 'patient_doctor_details', run: patientDoctorDetails.run },
+  { name: 'spirometry_trends', run: spirometryTrends.run },
+  // Still to build (lower priority, discuss before building):
+  // - dc_user_details (needs dc_gender/dc_martial_status/dc_city lookups seeded)
+  // - dc_fcm_token
+  // - vf_session / vf_reset_password_token / portal_login (stale data — likely skip)
 ];
 
 function parseArgs() {
