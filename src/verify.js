@@ -12,9 +12,22 @@ async function countPg(pool, table) {
   return parseInt(rows[0].count, 10);
 }
 
-async function countMysql(pool, table) {
-  const [rows] = await pool.query(`SELECT COUNT(*) as c FROM ${table}`);
-  return rows[0].c;
+async function countMysql(pool, table, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const [rows] = await pool.query(`SELECT COUNT(*) as c FROM ${table}`);
+      return rows[0].c;
+    } catch (err) {
+      const isConnectionIssue = err.fatal || err.code === 'PROTOCOL_CONNECTION_LOST' ||
+        err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT';
+      if (isConnectionIssue && attempt < retries) {
+        logger.warn(`Connection issue counting ${table}, retrying (${attempt + 1}/${retries})...`);
+        await new Promise(r => setTimeout(r, 2000));
+        continue;
+      }
+      throw err;
+    }
+  }
 }
 
 async function main() {
@@ -111,4 +124,7 @@ async function main() {
   await closeAll();
 }
 
-main();
+main().catch((err) => {
+  logger.error('Verification script failed', err);
+  process.exit(1);
+});

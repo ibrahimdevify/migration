@@ -13,6 +13,9 @@ async function getMysqlPool() {
       uri: process.env.VITALFLO_DB_URL,
       waitForConnections: true,
       connectionLimit: 10,
+      connectTimeout: 30000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000,
       // IMPORTANT: never enable query logging that dumps bound parameters
       // (that would leak PII into terminal/log files).
     });
