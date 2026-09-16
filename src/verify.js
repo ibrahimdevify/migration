@@ -46,7 +46,6 @@ async function main() {
     const targetCount = await countMysql(mysqlPool, check.target);
     logger.info(`[ande_db] ${check.source} (${sourceCount}) -> ${check.target} (${targetCount})`);
   }
-
   // --- portal_db user linking check ---
   const portalUserCount = await countPg(portalDb, 'dashboard_user');
   const [mapRows] = await mysqlPool.query(
@@ -69,7 +68,7 @@ async function main() {
   // --- clinical data checks ---
   const clinicalChecks = [
     { source: 'dashboard_observation', target: 'portal_observation' },
-    { source: 'dashboard_spirometry', target: 'portal_spirometry' },
+    { source: 'dashboard_spirometry', target: 'portal_spirometry' }, // expect DIFF of 68: source rows with NULL observation_id, intentionally left unmigrated (see conversation decision) — not a bug
     { source: 'dashboard_flow', target: 'portal_flow' },
     { source: 'dashboard_volume', target: 'portal_volume' },
     { source: 'dashboard_stepsobservations', target: 'portal_steps_observations' },
