@@ -26,6 +26,8 @@ const heartRate = require('./steps/07_heart_rate');
 const predictedValues = require('./steps/08_predicted_values');
 const patientDoctorDetails = require('./steps/09_patient_doctor_details');
 const spirometryTrends = require('./steps/10_spirometry_trends');
+const syncOldDbUsers = require('./steps/11_sync_old_db_users');
+const syncOldDbClinical = require('./steps/12_sync_old_db_clinical');
 
 const STEPS = [
   { name: 'lookups', run: lookups.run },
@@ -38,10 +40,11 @@ const STEPS = [
   { name: 'predicted_values', run: predictedValues.run },
   { name: 'patient_doctor_details', run: patientDoctorDetails.run },
   { name: 'spirometry_trends', run: spirometryTrends.run },
-  // Still to build (lower priority, discuss before building):
-  // - dc_user_details (needs dc_gender/dc_martial_status/dc_city lookups seeded)
-  // - dc_fcm_token
-  // - vf_session / vf_reset_password_token / portal_login (stale data — likely skip)
+  // Delta sync from the OLD live database — run these LAST, after
+  // everything above has completed, since they depend on the new
+  // database already having the full historical migration in place.
+  { name: 'sync_old_db_users', run: syncOldDbUsers.run },
+  { name: 'sync_old_db_clinical', run: syncOldDbClinical.run },
 ];
 
 function parseArgs() {
