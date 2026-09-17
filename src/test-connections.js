@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // test-connections.js
-// Run this BEFORE anything else to confirm all three database connections
-// work. Prints only server info and row counts — never actual data.
+// Run this BEFORE anything else to confirm all database connections work
+// (ande_db, portal_db, the new vitalflo_db, and — if configured — the old
+// live vitalflo_db used by the delta-sync steps). Prints only server info
+// and row counts — never actual data.
 
 require('dotenv').config();
 const { Pool } = require('pg');
@@ -55,7 +57,17 @@ async function main() {
 
   await testPostgres('ande_db', process.env.ANDE_DB_URL);
   await testPostgres('portal_db', process.env.PORTAL_DB_URL);
-  await testMysql('vitalflo_db', process.env.VITALFLO_DB_URL);
+  await testMysql('vitalflo_db (new/target)', process.env.VITALFLO_DB_URL);
+
+  // Optional: only needed for the delta-sync steps (11, 12). Not required
+  // for the main historical migration, so don't fail the whole script if
+  // it's not set — just note it's being skipped.
+  if (process.env.OLD_VITALFLO_DB_URL) {
+    await testMysql('OLD vitalflo_db (live project)', process.env.OLD_VITALFLO_DB_URL);
+  } else {
+    console.log('\n--- Skipping OLD vitalflo_db (live project) ---');
+    console.log('   OLD_VITALFLO_DB_URL not set — only needed for the delta-sync steps (11, 12).');
+  }
 
   console.log('\nDone.');
 }
