@@ -43,6 +43,37 @@ async function syncPatientDetails(pool, oldPool, oldUserId, newUserId) {
   if (oldRows.length === 0) return { action: 'none' };
   const old = oldRows[0];
 
+  // patient_group_id and assigned_clinician_id reference OTHER users/groups
+  // by their OLD-db IDs — these must be translated through the same user
+  // mapping (and the patient_group mapping) before use, not copied as-is.
+  let newAssignedClinicianId = null;
+  if (old.assigned_clinician_id) {
+    const [clinicianMap] = await pool.query(
+      `SELECT target_id FROM _migration_id_map
+       WHERE source_db = 'old_merged_db' AND source_table = 'dc_users'
+         AND source_id = ? AND target_table = 'dc_users'`,
+      [String(old.assigned_clinician_id)]
+    );
+    newAssignedClinicianId = clinicianMap.length ? clinicianMap[0].target_id : null;
+  }
+
+  let newPatientGroupId = null;
+  if (old.patient_group_id) {
+    // Patient groups aren't synced by a dedicated old-db step (they're
+    // small, static reference data expected to already match via the
+    // original ande_db migration) — look up by matching group NAME as a
+    // best-effort translation, since IDs differ between the two databases.
+    const [oldGroupRows] = await oldPool.query(
+      `SELECT name FROM vf_patient_group WHERE id = ?`, [old.patient_group_id]
+    );
+    if (oldGroupRows.length) {
+      const [newGroupRows] = await pool.query(
+        `SELECT id FROM vf_patient_group WHERE name = ? LIMIT 1`, [oldGroupRows[0].name]
+      );
+      newPatientGroupId = newGroupRows.length ? newGroupRows[0].id : null;
+    }
+  }
+
   const [existingRows] = await pool.query(
     `SELECT pd_id FROM dc_patient_details WHERE user_id_fk = ?`, [newUserId]
   );
@@ -52,13 +83,14 @@ async function syncPatientDetails(pool, oldPool, oldUserId, newUserId) {
     await pool.query(
       `UPDATE dc_patient_details SET
          chart_no = ?, height = ?, blood_group = ?, geno_type = ?, invite_code = ?,
-         is_web_allowed = ?, weight = ?, graph_view = ?, access_code = ?,
-         awair_refresh_token = ?, date_spirometer_received = ?, rpm_consent = ?, status = ?
+         is_web_allowed = ?, weight = ?, patient_group_id = ?, assigned_clinician_id = ?,
+         graph_view = ?, access_code = ?, awair_refresh_token = ?,
+         date_spirometer_received = ?, rpm_consent = ?, status = ?
        WHERE user_id_fk = ?`,
       [old.chart_no, old.height, old.blood_group, old.geno_type, old.invite_code,
-       !!old.is_web_allowed, old.weight, !!old.graph_view, old.access_code,
-       old.awair_refresh_token, old.date_spirometer_received, !!old.rpm_consent,
-       old.status, newUserId]
+       !!old.is_web_allowed, old.weight, newPatientGroupId, newAssignedClinicianId,
+       !!old.graph_view, old.access_code, old.awair_refresh_token,
+       old.date_spirometer_received, !!old.rpm_consent, old.status, newUserId]
     );
     return { action: 'updated', pdId: existingRows[0].pd_id };
   }
@@ -67,12 +99,13 @@ async function syncPatientDetails(pool, oldPool, oldUserId, newUserId) {
   const [result] = await pool.query(
     `INSERT INTO dc_patient_details
        (chart_no, height, blood_group, geno_type, invite_code, is_web_allowed,
-        user_id_fk, weight, graph_view, access_code, awair_refresh_token,
-        date_spirometer_received, rpm_consent, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        user_id_fk, weight, patient_group_id, assigned_clinician_id, graph_view,
+        access_code, awair_refresh_token, date_spirometer_received, rpm_consent, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [old.chart_no, old.height, old.blood_group, old.geno_type, old.invite_code,
-     !!old.is_web_allowed, newUserId, old.weight, !!old.graph_view, old.access_code,
-     old.awair_refresh_token, old.date_spirometer_received, !!old.rpm_consent, old.status]
+     !!old.is_web_allowed, newUserId, old.weight, newPatientGroupId, newAssignedClinicianId,
+     !!old.graph_view, old.access_code, old.awair_refresh_token,
+     old.date_spirometer_received, !!old.rpm_consent, old.status]
   );
   return { action: 'created', pdId: result.insertId };
 }
