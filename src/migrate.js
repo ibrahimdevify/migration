@@ -28,6 +28,7 @@ const patientDoctorDetails = require('./steps/09_patient_doctor_details');
 const spirometryTrends = require('./steps/10_spirometry_trends');
 const syncOldDbUsers = require('./steps/11_sync_old_db_users');
 const syncOldDbClinical = require('./steps/12_sync_old_db_clinical');
+const syncOldDbPatientDoctorDetails = require('./steps/13_sync_old_db_patient_doctor_details');
 
 const STEPS = [
   { name: 'lookups', run: lookups.run },
@@ -45,6 +46,7 @@ const STEPS = [
   // database already having the full historical migration in place.
   { name: 'sync_old_db_users', run: syncOldDbUsers.run },
   { name: 'sync_old_db_clinical', run: syncOldDbClinical.run },
+  { name: 'sync_old_db_patient_doctor_details', run: syncOldDbPatientDoctorDetails.run },
 ];
 
 function parseArgs() {
