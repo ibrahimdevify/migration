@@ -30,6 +30,7 @@ const syncOldDbUsers = require('./steps/11_sync_old_db_users');
 const syncOldDbClinical = require('./steps/12_sync_old_db_clinical');
 const syncOldDbPatientDoctorDetails = require('./steps/13_sync_old_db_patient_doctor_details');
 const assignCliniciansViaGroups = require('./steps/14_assign_clinicians_via_groups');
+const assignCliniciansViaSessions = require('./steps/15_assign_clinicians_via_sessions');
 
 const STEPS = [
   { name: 'lookups', run: lookups.run },
@@ -43,6 +44,7 @@ const STEPS = [
   { name: 'patient_doctor_details', run: patientDoctorDetails.run },
   { name: 'spirometry_trends', run: spirometryTrends.run },
   { name: 'assign_clinicians_via_groups', run: assignCliniciansViaGroups.run },
+  { name: 'assign_clinicians_via_sessions', run: assignCliniciansViaSessions.run },
   // Delta sync from the OLD live database — run these LAST, after
   // everything above has completed, since they depend on the new
   // database already having the full historical migration in place.
